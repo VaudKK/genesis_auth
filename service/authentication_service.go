@@ -7,7 +7,6 @@ import (
 	"genesis_auth/config"
 	"genesis_auth/dto"
 	"genesis_auth/model"
-	"log"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -40,14 +39,60 @@ func NewAuthenticationService(collection *mongo.Collection) AuthenticationServic
 }
 
 func (authService *authenticationService) CreateUser(userDto *dto.UserDto) (interface{}, error) {
-	filter := bson.M{
-		"$and": []bson.M{
-			bson.M{"password": bson.M{"$eq": userDto.Password},
-				"$or": []bson.M{
-					bson.M{"email": bson.M{"$eq": userDto.Email}},
-					bson.M{"phone": bson.M{"$eq": userDto.Phone}},
-				},
-			}}}
+	filter := bson.D{
+		{Key: "$or", Value: bson.A{
+			bson.D{{Key: "email", Value: userDto.Email}},
+			bson.D{{Key: "phone", Value: userDto.Phone}},
+		}},
+	}
+
+	var usrs []model.User
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cursor, err := authService.collection.Find(ctx, filter)
+
+	cursor.All(context.TODO(), &usrs)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(usrs) > 0 {
+		return nil, fmt.Errorf("user exists")
+	} else {
+		hash, hashErr := bcrypt.GenerateFromPassword([]byte(userDto.Password), bcrypt.DefaultCost)
+		if hashErr != nil {
+			return nil, hashErr
+		}
+
+		usr := model.User{
+			ID:        primitive.NewObjectID(),
+			FirstName: userDto.FirstName,
+			LastName:  userDto.LastName,
+			Phone:     userDto.Phone,
+			Email:     userDto.Email,
+			Password:  string(hash),
+		}
+
+		result, insertErr := authService.collection.InsertOne(ctx, usr)
+
+		if err != nil {
+			return nil, insertErr
+		}
+
+		return result, nil
+	}
+}
+
+func (authService *authenticationService) LogIn(logInDto *dto.LogInDto) (*dto.TokenDto, error) {
+
+	filter := bson.D{
+		{Key: "$or", Value: bson.A{
+			bson.D{{Key: "email", Value: logInDto.Identifier}},
+			bson.D{{Key: "phone", Value: logInDto.Identifier}},
+		}},
+	}
 
 	var usr model.User
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -57,38 +102,24 @@ func (authService *authenticationService) CreateUser(userDto *dto.UserDto) (inte
 
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			hash, hashErr := bcrypt.GenerateFromPassword([]byte(userDto.Password), bcrypt.DefaultCost)
-			if hashErr != nil {
-				log.Fatal(hashErr)
-				return nil, hashErr
-			}
-			usr = model.User{
-				ID:        primitive.NewObjectID(),
-				FirstName: userDto.FirstName,
-				LastName:  userDto.LastName,
-				Phone:     userDto.Phone,
-				Email:     userDto.Email,
-				Password:  string(hash),
-			}
-
-			result, insertErr := authService.collection.InsertOne(ctx, usr)
-
-			if err != nil {
-				return nil, insertErr
-			}
-
-			return result.InsertedID, nil
+			return nil, fmt.Errorf("no user found")
 		}
-
-		log.Fatal(err)
 		return nil, err
 	}
 
-	return &usr, nil
-}
+	err = bcrypt.CompareHashAndPassword([]byte(usr.Password), []byte(logInDto.Password))
 
-func (authService *authenticationService) LogIn(logInDto *dto.LogInDto) (*dto.TokenDto, error) {
-	return nil, nil
+	if err != nil {
+		return nil, err
+	}
+
+	token, err := authService.GenerateToken(&usr, "access")
+
+	if err != nil {
+		return nil, err
+	}
+
+	return token, nil
 }
 
 func (authService *authenticationService) GenerateToken(user *model.User, tokenType string) (*dto.TokenDto, error) {
