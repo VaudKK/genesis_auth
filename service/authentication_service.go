@@ -128,14 +128,14 @@ func (authService *authenticationService) GenerateToken(user *model.User, tokenT
 
 	if tokenType == "access" {
 		expiry = time.Now().Add(time.Hour * 1).Unix()
-		subject = user.ID.String()
+		subject = user.ID.Hex()
 	} else if tokenType == "refresh" {
 		expiry = time.Now().Add(time.Hour * 24 * 3).Unix()
 		subject = "refresh"
 	}
 
 	claims := Claims{
-		Email:          user.Phone,
+		Email:          user.Email,
 		OrganizationId: user.OrganizationId,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: expiry,
