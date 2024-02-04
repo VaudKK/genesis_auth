@@ -136,7 +136,7 @@ func (authService *authenticationService) GenerateToken(user *model.User, tokenT
 
 	claims := Claims{
 		Email:          user.Email,
-		OrganizationId: user.OrganizationId,
+		OrganizationId: "1",
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: expiry,
 			Issuer:    "GenesisAuth",
