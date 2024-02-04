@@ -9,7 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-
 var (
 	authenticationService    service.AuthenticationService       = service.NewAuthenticationService(config.GetCollection(config.DB, "gen_users"))
 	authenticationController controller.AuthenticationController = controller.NewContributionController(authenticationService)
@@ -26,5 +25,5 @@ func main() {
 
 	authenticationRoutes.Routes(router)
 
-	router.Run("localhost:9000")
+	router.Run()
 }
