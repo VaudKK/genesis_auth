@@ -21,7 +21,7 @@ func NewAuthecationRoutes(controller controller.AuthenticationController) Authen
 }
 
 func (r *route) Routes(router *gin.Engine) {
-	//all routes related to contributions
+	//all routes related to authentication
 	router.POST("/users/create", r.controller.CreateUser())
 	router.POST("/users/login", r.controller.LogIn())
 }
