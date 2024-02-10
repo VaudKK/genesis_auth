@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"genesis_auth/config"
 	"genesis_auth/controller"
 	"genesis_auth/routes"
@@ -26,9 +25,6 @@ func main() {
 	router.Use(gin.Logger())
 
 	authenticationRoutes.Routes(router)
-
-	fmt.Println("Environment variable: ", os.Getenv("AUTH_STAGING"))
-
 
 	router.Run()
 }
